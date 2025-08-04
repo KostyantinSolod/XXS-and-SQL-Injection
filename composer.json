@@ -1,0 +1,17 @@
+{
+    "name": "solod/test-update",
+    "autoload": {
+        "psr-4": {
+            "Solod\\TestUpdate\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "KostyantinSolod",
+            "email": "solodkosta@gmail.com"
+        }
+    ],
+    "require": {
+        "phpmailer/phpmailer": "^6.10"
+    }
+}
