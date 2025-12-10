@@ -1,0 +1,5 @@
+RewriteEngine On
+
+RewriteBase /TestFixed/waf/
+
+RewriteRule ^([A-Za-z0-9\-_]+)/protect\.php$ protect.php?token=$1 [L,QSA]

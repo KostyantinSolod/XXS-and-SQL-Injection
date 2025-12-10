@@ -1,0 +1,273 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../db.php'; // налаштуй шлях до db.php
+
+header('Content-Type: application/javascript; charset=UTF-8');
+header('X-Content-Type-Options: nosniff');
+
+// Витягаємо token з шляху /.../waf/<token>/protect.php
+$uriPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?? '/';
+$parts   = explode('/', trim($uriPath, '/'));
+$token   = '';
+for ($i = 0; $i < count($parts) - 1; $i++) {
+    if ($parts[$i] === 'waf' && isset($parts[$i+1])) { $token = $parts[$i+1]; break; }
+}
+if ($token === '' || !preg_match('~^[A-Za-z0-9\-_]{10,}$~', $token)) { echo "/* protect: invalid token */"; exit; }
+
+// Знаходимо сайт у БД
+$stmt = $pdo->prepare("SELECT id FROM sites WHERE protect_token = ?");
+$stmt->execute([$token]);
+$site = $stmt->fetch(PDO::FETCH_ASSOC);
+$siteId = $site ? (int)$site['id'] : 0;
+if ($siteId <= 0) { echo "/* protect: token not recognized */"; exit; }
+
+// Визначаємо базу проекту: /TestFixed
+// Визначаємо базу проекту: /TestFixed
+$scriptDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/\\');      // /TestFixed/waf/<token>
+$projectBase = rtrim(dirname($scriptDir), '/\\');                 // /TestFixed/waf
+$projectBase = rtrim(dirname($projectBase), '/\\');               // /TestFixed
+
+// Побудова абсолютного origin (схема + хост), щоб JS завжди надсилав на наш сервер,
+// навіть коли скрипт вставлений на сторонній сайт.
+$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+$host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? '');
+$serverOrigin = rtrim($scheme . '://' . $host, '/');
+$sendUrl = $serverOrigin . $projectBase . '/api/waf_log.php';
+
+
+?>
+(function(){
+const siteId = <?= json_encode($siteId) ?>;
+const sendUrl = <?= json_encode($sendUrl) ?>;
+
+function clip(s, n){ try{return String(s).slice(0,n||2048)}catch(e){return ""} }
+
+// Enhanced detection patterns
+const patterns = {
+xss: [
+/<script[\s\S]*?>/i,
+/<iframe[\s\S]*?>/i,
+/<object[\s\S]*?>/i,
+/<embed[\s\S]*?>/i,
+/javascript:/i,
+/vbscript:/i,
+/on\w+\s*=/i, // onerror=, onload=, onclick=, etc.
+/alert\s*\(/i,
+/confirm\s*\(/i,
+/prompt\s*\(/i,
+/document\.cookie/i,
+/document\.write/i,
+/eval\s*\(/i,
+/expression\s*\(/i,
+/<svg[\s\S]*?on\w+/i,
+/<img[\s\S]*?on\w+/i
+],
+sqli: [
+/\bunion\b[\s\S]*?\bselect\b/i,
+/\bselect\b[\s\S]*?\bfrom\b/i,
+/\bdrop\b[\s\S]*?\btable\b/i,
+/\binsert\b[\s\S]*?\binto\b/i,
+/\bupdate\b[\s\S]*?\bset\b/i,
+/\bdelete\b[\s\S]*?\bfrom\b/i,
+/--[\s\S]*$/,
+/\/\*[\s\S]*?\*\//,
+/\bor\b\s+\d+\s*=\s*\d+/i,
+/\band\b\s+\d+\s*=\s*\d+/i,
+/'\s*(or|and)\s+'/i,
+/'\s*;\s*(drop|insert|update|delete)/i,
+/\bexec\s*\(/i,
+/\bsp_\w+/i, // SQL Server stored procedures
+/\bxp_\w+/i  // SQL Server extended procedures
+],
+rfi: [
+/https?:\/\/[^\s'"<>]+\.(php|asp|jsp|py)/i,
+/file:\/\//i,
+/ftp:\/\//i,
+/\.\.\//,
+/\.\.\\\/,
+/\/etc\/passwd/i,
+/\/windows\/system32/i
+],
+lfi: [
+/\.\.[\/\\]/,
+/\/etc\/passwd/i,
+/\/proc\/self\/environ/i,
+/\/var\/log\//i,
+/boot\.ini/i,
+/win\.ini/i
+]
+};
+
+function analyzeText(text) {
+let score = 0;
+let detectedTypes = [];
+
+// Decode URL-encoded content
+let decoded = text;
+try {
+decoded = decodeURIComponent(text);
+// Double decode for double-encoded attacks
+decoded = decodeURIComponent(decoded);
+} catch(e) {
+decoded = text;
+}
+
+// Also check base64 decoded content
+let base64Decoded = '';
+try {
+if (text.match(/^[A-Za-z0-9+\/]+=*$/)) {
+base64Decoded = atob(text);
+}
+} catch(e) {}
+
+const textToCheck = [text, decoded, base64Decoded].join(' ');
+
+// Check each pattern type
+for (const [type, typePatterns] of Object.entries(patterns)) {
+for (const pattern of typePatterns) {
+if (pattern.test(textToCheck)) {
+score += 0.3;
+if (!detectedTypes.includes(type)) {
+detectedTypes.push(type);
+}
+break; // Don't double-count same type
+}
+}
+}
+
+return {
+score: Math.min(score, 1), // Cap at 1.0
+types: detectedTypes
+};
+}
+
+function checkAndLog(source, content) {
+if (!content || content.length < 2) return;
+
+const result = analyzeText(content);
+
+if (result.score > 0.2) { // Lower threshold for better detection
+const payload = {
+site_id: siteId,
+url: clip(location.href, 2048),
+ref: clip(document.referrer, 2048),
+ua: clip(navigator.userAgent, 1024),
+lang: clip(navigator.language||"", 32),
+label: result.types.length > 0 ? result.types.join('_') : 'suspicious',
+score: Math.round(result.score * 100) / 100,
+source: source, // 'url', 'form', 'hash', etc.
+content: clip(content, 1024), // Store the malicious content
+t: Date.now()
+};
+
+console.log('[WAF] Threat detected:', payload);
+sendToServer(payload);
+}
+}
+
+function sendToServer(payload) {
+let sent = false;
+
+// Try fetch first
+try {
+fetch(sendUrl, {
+method: 'POST',
+body: new URLSearchParams({ site_id: String(siteId||''), params: JSON.stringify(payload) }),
+keepalive: true,
+credentials: 'omit'
+})
+
+
+.then(r => r.text())
+.then(t => {
+console.log('[WAF] sent via fetch:', t);
+sent = true;
+})
+.catch(e => {
+console.log('[WAF] fetch failed:', e);
+// Fallback to beacon if fetch fails
+if (!sent) {
+try {
+if (navigator.sendBeacon) {
+const params = new URLSearchParams();
+params.set('site_id', String(siteId||''));
+params.set('params', JSON.stringify(payload));
+navigator.sendBeacon(sendUrl, params);
+
+console.log('[WAF] sent via beacon');
+}
+} catch(e2) {
+console.log('[WAF] beacon also failed:', e2);
+}
+}
+});
+} catch(e) {
+// Immediate beacon fallback
+try {
+if (navigator.sendBeacon) {
+const params = new URLSearchParams();
+params.set('site_id', String(siteId||''));
+params.set('params', JSON.stringify(payload));
+navigator.sendBeacon(sendUrl, params);
+
+console.log('[WAF] sent via beacon (immediate fallback)');
+}
+} catch(e2) {
+console.log('[WAF] all send methods failed:', e2);
+}
+}
+}
+
+// Check current URL components
+checkAndLog('query', location.search);
+checkAndLog('hash', location.hash);
+checkAndLog('pathname', location.pathname);
+
+// Monitor form submissions
+document.addEventListener('submit', function(e) {
+const form = e.target;
+if (form.tagName === 'FORM') {
+const formData = new FormData(form);
+for (const [key, value] of formData.entries()) {
+checkAndLog('form_' + key, String(value));
+}
+}
+});
+
+// Monitor input changes for real-time detection
+document.addEventListener('input', function(e) {
+if (e.target.value && e.target.value.length > 10) {
+checkAndLog('input_' + (e.target.name || e.target.id || 'unknown'), e.target.value);
+}
+});
+
+// Monitor URL changes (for SPAs)
+let lastUrl = location.href;
+setInterval(function() {
+if (location.href !== lastUrl) {
+lastUrl = location.href;
+checkAndLog('navigation_query', location.search);
+checkAndLog('navigation_hash', location.hash);
+}
+}, 1000);
+
+// Monitor DOM mutations for injected scripts
+if (window.MutationObserver) {
+const observer = new MutationObserver(function(mutations) {
+mutations.forEach(function(mutation) {
+mutation.addedNodes.forEach(function(node) {
+if (node.tagName === 'SCRIPT' && node.innerHTML) {
+checkAndLog('dom_script', node.innerHTML);
+}
+});
+});
+});
+
+observer.observe(document.documentElement, {
+childList: true,
+subtree: true
+});
+}
+console.log('[WAF] Protection initialized for site', siteId);
+})();
+

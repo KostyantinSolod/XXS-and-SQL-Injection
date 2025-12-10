@@ -1,5 +1,4 @@
 <?php
-// Підключаємо змінні з .env
 function loadEnv($path) {
     if (!file_exists($path)) return;
 
@@ -23,11 +22,26 @@ $dsn = "pgsql:host=$host;port=$port;dbname=$dbname";
 
 try {
     $pdo = new PDO($dsn, $user, $pass, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_EMULATE_PREPARES => false // ВАЖЛИВО: вимикаємо емульовані prepares
     ]);
 } catch (PDOException $e) {
-    die("❌ Помилка з'єднання з БД: " . $e->getMessage());
+    // Лог помилки в файл, але не виводимо прямо (щоб не ламати headers)
+    $errMsg = "DB CONNECT ERROR: " . $e->getMessage();
+    @file_put_contents(__DIR__ . '/db_error.log', "[".date('Y-m-d H:i:s')."] " . $errMsg . PHP_EOL, FILE_APPEND);
+    // Надаємо зрозумілий JSON, якщо викликається через HTTP
+    if (php_sapi_name() !== 'cli') {
+        header('Content-Type: application/json; charset=UTF-8');
+        http_response_code(500);
+        echo json_encode(['ok'=>false,'error'=>'db: internal']);
+        exit;
+    } else {
+        // Для CLI просто вийти з кодом помилки
+        fwrite(STDERR, $errMsg . PHP_EOL);
+        exit(1);
+    }
 }
+
 
 function log_action($user_id, $action, $details = '') {
     global $pdo;
@@ -36,5 +50,4 @@ function log_action($user_id, $action, $details = '') {
     $stmt->execute([$user_id, $action, $details, $ip]);
 }
 
-?>
 

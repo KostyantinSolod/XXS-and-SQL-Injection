@@ -1,64 +1,107 @@
-body {
-    background: linear-gradient(135deg,#8ec5fc 0%,#e0c3fc 100%);
-}
-.card {
-    border: none;
-    border-radius: 1.5rem;
-}
+body { background: linear-gradient(135deg,#8ec5fc 0%,#e0c3fc 100%); }
+.card { border: none; border-radius: 1.5rem; }
 
 [data-bs-theme="dark"] body {
-    background: linear-gradient(135deg, #2c2c2c 0%, #1a1a1a 100%);
-    color: #f0f0f0;
+    background: linear-gradient(135deg,#2c2c2c 0%,#1a1a1a 100%);
+    color:#f0f0f0;
+}
+[data-bs-theme="dark"] .card { background-color:#2b2b2b; color:#fff; }
+[data-bs-theme="dark"] .list-group-item { background-color:#2b2b2b; color:#fff; border-color:#3a3a3a; }
+
+.theme-switcher{cursor:pointer;padding:.5rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;transition:all .3s ease;}
+.theme-switcher:hover{background-color:rgba(0,0,0,.1);}
+[data-bs-theme="dark"] .theme-switcher:hover{background-color:rgba(255,255,255,.1);}
+
+.modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.6);align-items:center;justify-content:center;}
+.modal:target{display:flex;}
+.modal-content{background:#fff;padding:20px;border-radius:10px;width:320px;text-align:center;box-shadow:0 0 10px rgba(0,0,0,.3);animation:fadeIn .3s ease;}
+.modal-footer{margin-top:20px;}
+.modal-footer a,.modal-footer button{margin:5px;padding:8px 16px;border-radius:5px;text-decoration:none;border:none;cursor:pointer;}
+.btn-cancel{background:#6c757d;color:#fff;}
+.btn-confirm{background:#dc3545;color:#fff;}
+@keyframes fadeIn{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:scale(1);}}
+
+/* Світла тема */
+.code-snippet {
+    background-color: #ffffff;
+    color: #212529;
 }
 
-[data-bs-theme="dark"] .card {
-    background-color: #2b2b2b;
-    color: #ffffff;
+/* Темна тема */
+[data-bs-theme="dark"] .code-snippet {
+    background-color: #111 !important;
+    color: #f8f9fa !important;
+    border: 1px solid #444;
 }
 
 
-.theme-switcher {
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 50%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+/* якщо футер — елемент <footer> АБО блок з класом .footer */
+/* Світла тема */
+footer.footer {
+    background-color: #f8f9fa;
+    color: #212529;
 }
 
-.theme-switcher:hover {
-    background-color: rgba(0, 0, 0, 0.1);
+/* Темна тема */
+html[data-bs-theme="dark"] footer.footer,
+body[data-bs-theme="dark"] footer.footer {
+    background-color: #121212;
+    color: #f8f9fa;
+    border-top: 1px solid #333;
 }
 
-[data-bs-theme="dark"] .theme-switcher:hover {
-    background-color: rgba(255, 255, 255, 0.1);
+
+
+/* всі Bootstrap-поля в темній темі */
+[data-bs-theme="dark"] .form-control,
+[data-bs-theme="dark"] .form-control:disabled,
+[data-bs-theme="dark"] .form-control[readonly] {
+    background-color: #111 !important;
+    color: #f8f9fa !important;
+    border-color: #444 !important;
 }
 
-.modal {
-    display: none;
-    position: fixed; top:0; left:0;
-    width:100%; height:100%;
-    background: rgba(0,0,0,0.6);
-    align-items: center; justify-content: center;
+.waf-table {
+    font-size: 0.85rem;
 }
-.modal:target { display:flex; }
-.modal-content {
-    background: #fff;
-    padding:20px; border-radius:10px;
-    width:320px; text-align:center;
-    box-shadow:0 0 10px rgba(0,0,0,0.3);
-    animation: fadeIn .3s ease;
+
+[data-bs-theme="dark"] .waf-table {
+    --bs-table-bg: #151823;
+    --bs-table-striped-bg: #181c29;
+    --bs-table-striped-color: #f8f9fa;
+    --bs-table-border-color: #2a2f3e;
+    --bs-table-color: #f8f9fa;
 }
-.modal-footer { margin-top:20px; }
-.modal-footer a, .modal-footer button {
-    margin:5px; padding:8px 16px;
-    border-radius:5px; text-decoration:none;
-    border:none; cursor:pointer;
+
+[data-bs-theme="light"] .waf-table {
+    --bs-table-bg: #ffffff;
+    --bs-table-striped-bg: #f8f9ff;
+    --bs-table-striped-color: #212529;
+    --bs-table-border-color: #dee2e6;
+    --bs-table-color: #212529;
 }
-.btn-cancel { background:#6c757d; color:#fff; }
-.btn-confirm { background:#dc3545; color:#fff; }
-@keyframes fadeIn {
-    from {opacity:0; transform:scale(0.8);}
-    to {opacity:1; transform:scale(1);}
+
+.waf-modal .modal-dialog {
+    max-width: 700px;
 }
+
+.waf-modal .modal-content {
+    background: #ffffff;
+    color: #212529;
+    border-color: #dee2e6;
+}
+
+[data-bs-theme="dark"] .waf-modal .modal-content {
+    background: #151823;
+    color: #f8f9fa;
+    border-color: #2a2f3e;
+}
+
+
+
+.waf-modal pre {
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+

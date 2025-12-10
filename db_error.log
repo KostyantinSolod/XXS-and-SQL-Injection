@@ -1,0 +1,13 @@
+[2025-11-07 03:01:19] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-07 03:01:19] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=5432" to address: Unknown host
+[2025-11-07 03:01:21] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-07 03:01:22] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-07 03:01:22] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=5432" to address: Unknown host
+[2025-11-07 03:02:22] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-07 03:03:10] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-08 15:43:38] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-08 15:48:59] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-08 15:49:59] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=5432" to address: Unknown host
+[2025-11-08 15:49:59] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-09 03:55:54] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host
+[2025-11-09 07:55:14] DB CONNECT ERROR: SQLSTATE[08006] [7] could not translate host name "port=" to address: Unknown host

@@ -1,9 +1,10 @@
 <?php
-require_once __DIR__ . '/db.php';
-include __DIR__ . '/header.php';
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+require_once __DIR__ . '/db.php';
+include __DIR__ . '/header.php';
+
 
 
 $message = '';
@@ -11,15 +12,15 @@ $email = trim($_POST['email'] ?? '');
 $username = trim($_POST['username'] ?? '');
 
 // Перевірка коду
-if (isset($_POST['verify_code_submit'])) {
+/*if (isset($_POST['verify_code_submit'])) {
     $enteredCode = trim($_POST['verify_code']);
-    if ($_SESSION['verification_code'] !== $enteredCode) {
+    if ($enteredCode !== ($_SESSION['email_code'] ?? '')) {
         $message = '❌ Невірний код підтвердження.';
     } else {
         $_SESSION['email_verified'] = true;
         $message = '✅ Email підтверджено.';
     }
-}
+}*/
 
 // Реєстрація
 if (isset($_POST['register'])) {
@@ -84,8 +85,9 @@ if (isset($_POST['register'])) {
 
             <div class="mb-3">
                 <label class="form-label">Код підтвердження</label>
-                <input class="form-control" type="text" name="verify_code" placeholder="Введіть код з email">
-                <button class="btn btn-info mt-2" type="submit" name="verify_code_submit">Підтвердити код</button>
+                <input class="form-control" type="text" name="verify_code" id="verify_code" placeholder="Введіть код з email">
+                <button class="btn btn-info mt-2" type="button" id="verifyCodeBtn">Підтвердити код</button>
+
             </div>
 
             <button class="btn btn-primary w-100 mt-3" type="submit" name="register">Зареєструватися</button>
@@ -96,38 +98,111 @@ if (isset($_POST['register'])) {
 </div>
 
 <script>
-    const sendBtn = document.getElementById("sendCodeBtn");
-    const emailInput = document.getElementById("email");
-    const statusBox = document.getElementById("status");
+    (function () {
+        const sendBtn     = document.getElementById("sendCodeBtn");
+        const emailInput  = document.getElementById("email");
+        const statusBox   = document.getElementById("status");
+        const verifyBtn   = document.getElementById("verifyCodeBtn");
+        const verifyInput = document.getElementById("verify_code");
 
-    sendBtn.addEventListener("click", async () => {
-        const email = emailInput.value.trim();
-        if (!email) {
-            alert("Введіть email");
-            return;
-        }
+        async function sendMail(email) {
+            const url = new URL("email/send_email.php", window.location.href).toString();
 
-        sendBtn.disabled = true;
-        sendBtn.textContent = "Надсилаємо...";
+            const formData = new FormData();
+            formData.append("email", email);
 
-        const formData = new FormData();
-        formData.append("email", email);
-
-        try {
-            const response = await fetch("email/send_email.php", {
+            const res = await fetch(url, {
                 method: "POST",
-                body: formData
+                body: formData,
+                credentials: "same-origin"
             });
 
-            const data = await response.json();
-            statusBox.innerHTML = `<div class="alert alert-${data.success ? 'success' : 'danger'}">${data.message}</div>`;
-        } catch (err) {
-            statusBox.innerHTML = `<div class="alert alert-danger">❌ Помилка запиту до сервера</div>`;
+            const raw = await res.text();
+            let data;
+            try { data = JSON.parse(raw); }
+            catch (e) {
+                throw new Error(`Non-JSON (${res.status}): ${raw.slice(0, 200)}`);
+            }
+
+            if (!res.ok || !data.success) {
+                throw new Error(data.message || `HTTP ${res.status}`);
+            }
+            return data.message || "OK";
         }
 
-        sendBtn.disabled = false;
-        sendBtn.textContent = "Відправити код";
-    });
+        // Надіслати код
+        sendBtn.addEventListener("click", async () => {
+            const email = emailInput.value.trim();
+            if (!email) {
+                alert("Введіть email");
+                return;
+            }
+
+            sendBtn.disabled = true;
+            sendBtn.textContent = "Надсилаємо…";
+            statusBox.innerHTML = "";
+
+            try {
+                const msg = await sendMail(email);
+                statusBox.innerHTML = `<div class="alert alert-success">✅ ${msg}</div>`;
+            } catch (err) {
+                statusBox.innerHTML = `<div class="alert alert-danger">❌ Помилка: ${err.message}</div>`;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = "Відправити код";
+            }
+        });
+
+        // Підтвердити код
+        verifyBtn.addEventListener("click", async () => {
+            const email = emailInput.value.trim();
+            const code  = verifyInput.value.trim();
+
+            if (!email) {
+                alert("Спочатку введіть email");
+                return;
+            }
+            if (!code) {
+                alert("Введіть код підтвердження");
+                return;
+            }
+
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = "Перевіряємо…";
+
+            try {
+                const url = new URL("email/verify_code.php", window.location.href).toString();
+                const formData = new FormData();
+                formData.append("email", email);
+                formData.append("code", code);
+
+                const res = await fetch(url, {
+                    method: "POST",
+                    body: formData,
+                    credentials: "same-origin"
+                });
+
+                const raw = await res.text();
+                let data;
+                try { data = JSON.parse(raw); }
+                catch (e) {
+                    throw new Error(`Non-JSON (${res.status}): ${raw.slice(0, 200)}`);
+                }
+
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || `HTTP ${res.status}`);
+                }
+
+                statusBox.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+            } catch (err) {
+                statusBox.innerHTML = `<div class="alert alert-danger">❌ Помилка: ${err.message}</div>`;
+            } finally {
+                verifyBtn.disabled = false;
+                verifyBtn.textContent = "Підтвердити код";
+            }
+        });
+    })();
 </script>
+
 
 <?php include __DIR__ . '/footer.php'; ?>

@@ -7,26 +7,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    $stmt = $pdo->prepare('SELECT password FROM users WHERE username = ?');
+    // беремо id, username, password_hash
+    $stmt = $pdo->prepare('SELECT id, username, password FROM users WHERE username = ?');
     $stmt->execute([$username]);
-    $user = $stmt->fetch();
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if ($user && password_verify($password, $user['password'])) {
-    $_SESSION['user'] = $username;
+        // сесія
+        $_SESSION['user']    = $user['username'];
+        $_SESSION['user_id'] = (int)$user['id'];
 
-    // Load saved settings
-    $stmtSettings = $pdo->prepare('SELECT theme, timezone, fontsize FROM user_settings WHERE user_id = (SELECT id FROM users WHERE username = ?)');
-    $stmtSettings->execute([$username]);
-    if ($row = $stmtSettings->fetch()) {
-        $_SESSION['theme'] = $row['theme'];
-        $_SESSION['timezone'] = $row['timezone'];
-        $_SESSION['fontsize'] = $row['fontsize'];
-    }
+        // останній вхід
+        $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+        $st = $pdo->prepare('UPDATE users SET last_login_at = NOW(), last_login_ip = :ip WHERE id = :id');
+        $st->execute([':ip'=>$ip, ':id'=>$user['id']]);
 
-    header('Location: dashboard.php');
+        // налаштування
+        $stmtSettings = $pdo->prepare('SELECT theme, timezone, fontsize FROM user_settings WHERE user_id = ?');
+        $stmtSettings->execute([$user['id']]);
+        if ($row = $stmtSettings->fetch(PDO::FETCH_ASSOC)) {
+            $_SESSION['theme']    = $row['theme'];
+            $_SESSION['timezone'] = $row['timezone'];
+            $_SESSION['fontsize'] = $row['fontsize'];
+        }
 
+        header('Location: dashboard.php');
         exit;
     }
+
     $message = 'Невірні облікові дані.';
 }
 ?>
